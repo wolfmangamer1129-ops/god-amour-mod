@@ -6,8 +6,8 @@ import org.bukkit.command.*;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.*;
 import org.bukkit.event.*;
-import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.*;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.*;
@@ -26,7 +26,7 @@ public class GodGear extends JavaPlugin implements Listener, CommandExecutor {
     private final Map<UUID, Long> riptideReset = new HashMap<>();
     private final Set<UUID> jumpReady = new HashSet<>();
     private final Set<UUID> safeFall = new HashSet<>();
-    private final Set<UUID> mining = new HashSet<>();
+    private final Set<String> mining = new HashSet<>();
     private final Set<UUID> threeByThree = new HashSet<>();
     private static final String[] WEAPONS = {"pickaxe","sword","axe","spear","mace","bow"};
     private static final String[] ARMOR = {"helmet","chestplate","leggings","boots"};
@@ -45,7 +45,7 @@ public class GodGear extends JavaPlugin implements Listener, CommandExecutor {
                 if(is(a[2],"chestplate")) effect(p,PotionEffectType.RESISTANCE,80,0);
                 if(is(a[1],"leggings")) effect(p,PotionEffectType.STRENGTH,80,0);
                 if(is(a[0],"boots")) effect(p,PotionEffectType.SPEED,80,1);
-                if(is(a[3],"helmet") && is(a[2],"chestplate") && is(a[1],"leggings") && is(a[0],"boots")) {
+                if(Arrays.stream(a).allMatch(this::isGodArmor)) {
                     effect(p,PotionEffectType.REGENERATION,80,1);
                     effect(p,PotionEffectType.FIRE_RESISTANCE,80,0);
                 }
@@ -186,13 +186,12 @@ public class GodGear extends JavaPlugin implements Listener, CommandExecutor {
         if(!is(p.getInventory().getItemInMainHand(),"mace") && p.getAllowFlight())p.setAllowFlight(false);
     }
     @EventHandler public void onBreak(BlockBreakEvent e) {
-        Player p=e.getPlayer();if(!is(p.getInventory().getItemInMainHand(),"pickaxe") || !mining.add(p.getUniqueId()))return;
-        try {
+        Player p=e.getPlayer();if(!is(p.getInventory().getItemInMainHand(),"pickaxe"))return;
         Block origin=e.getBlock();String type=origin.getType().name();
         if(type.endsWith("_ORE") || type.equals("ANCIENT_DEBRIS")) {
             Queue<Block> queue=new ArrayDeque<>();Set<String> seen=new HashSet<>();queue.add(origin);
             int count=0;
-            while(!queue.isEmpty() && count<255) {
+            while(!queue.isEmpty() && count<256) {
                 Block b=queue.poll();String k=b.getWorld().getUID()+":"+b.getX()+":"+b.getY()+":"+b.getZ();
                 if(!seen.add(k)||b.getType()!=origin.getType())continue;
                 if(b!=origin) {BlockBreakEvent extra=new BlockBreakEvent(b,p);Bukkit.getPluginManager().callEvent(extra);if(!extra.isCancelled()){b.breakNaturally(p.getInventory().getItemInMainHand());count++;}}
@@ -205,6 +204,5 @@ public class GodGear extends JavaPlugin implements Listener, CommandExecutor {
                 if(!b.getType().isAir() && b.getType().isSolid()){BlockBreakEvent extra=new BlockBreakEvent(b,p);Bukkit.getPluginManager().callEvent(extra);if(!extra.isCancelled())b.breakNaturally(p.getInventory().getItemInMainHand());}
             }
         }
-        } finally { mining.remove(p.getUniqueId()); }
     }
 }
