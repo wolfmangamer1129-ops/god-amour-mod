@@ -1,0 +1,11 @@
+name: MacsGodGear
+version: 1.0.0
+main: com.macs.godgear.GodGear
+api-version: '1.21'
+commands:
+  godgear:
+    description: Give or upgrade god gear
+    usage: /godgear give <player> <item|all> or /godgear upgrade <item>
+permissions:
+  godgear.admin:
+    default: op
