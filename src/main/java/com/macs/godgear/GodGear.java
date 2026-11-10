@@ -12,6 +12,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.*;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.*;
+import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.persistence.*;
