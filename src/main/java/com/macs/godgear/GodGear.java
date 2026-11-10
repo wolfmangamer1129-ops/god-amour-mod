@@ -13,6 +13,7 @@ import org.bukkit.event.entity.*;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.persistence.*;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.*;
@@ -35,6 +36,8 @@ public class GodGear extends JavaPlugin implements Listener, CommandExecutor {
     @Override public void onEnable() {
         key = new NamespacedKey(this,"god_item");
         getServer().getPluginManager().registerEvents(this,this);
+        registerRecipes();
+        Bukkit.getOnlinePlayers().forEach(this::ensureGuide);
         Objects.requireNonNull(getCommand("godgear")).setExecutor(this);
         getServer().getScheduler().runTaskTimer(this, () -> {
             for(Player p : Bukkit.getOnlinePlayers()) {
@@ -43,9 +46,9 @@ public class GodGear extends JavaPlugin implements Listener, CommandExecutor {
                     effect(p,PotionEffectType.NIGHT_VISION,240,0);
                     if(p.isInWater()) effect(p,PotionEffectType.DOLPHINS_GRACE,80,0);
                 }
-                if(is(a[2],"chestplate")) effect(p,PotionEffectType.RESISTANCE,80,0);
-                if(is(a[1],"leggings")) effect(p,PotionEffectType.STRENGTH,80,0);
-                if(is(a[0],"boots")) effect(p,PotionEffectType.SPEED,80,1);
+                if(is(a[2],"chestplate")) { effect(p,PotionEffectType.FIRE_RESISTANCE,80,0); effect(p,PotionEffectType.STRENGTH,80,0); }
+                if(is(a[1],"leggings")) { effect(p,PotionEffectType.SPEED,80,0); effect(p,PotionEffectType.JUMP_BOOST,80,0); }
+                if(is(a[0],"boots")) { effect(p,PotionEffectType.SPEED,80,1); effect(p,PotionEffectType.SLOW_FALLING,80,0); }
                 if(Arrays.stream(a).allMatch(this::isGodArmor)) {
                     effect(p,PotionEffectType.REGENERATION,80,1);
                     effect(p,PotionEffectType.FIRE_RESISTANCE,80,0);
@@ -65,7 +68,7 @@ public class GodGear extends JavaPlugin implements Listener, CommandExecutor {
             case "pickaxe" -> Material.NETHERITE_PICKAXE;
             case "sword" -> Material.NETHERITE_SWORD;
             case "axe" -> Material.NETHERITE_AXE;
-            case "spear" -> Material.TRIDENT;
+            case "spear" -> Material.NETHERITE_SPEAR;
             case "mace" -> Material.MACE;
             case "bow" -> Material.BOW;
             case "helmet" -> Material.NETHERITE_HELMET;
@@ -83,7 +86,7 @@ public class GodGear extends JavaPlugin implements Listener, CommandExecutor {
             case "pickaxe" -> {ench(m,Enchantment.EFFICIENCY,10);ench(m,Enchantment.FORTUNE,5);}
             case "sword" -> {ench(m,Enchantment.SHARPNESS,10);ench(m,Enchantment.SWEEPING_EDGE,5);ench(m,Enchantment.KNOCKBACK,2);}
             case "axe" -> {ench(m,Enchantment.SHARPNESS,7);ench(m,Enchantment.KNOCKBACK,1);}
-            case "spear" -> ench(m,Enchantment.RIPTIDE,3);
+            case "spear" -> { /* Native spear; movement powers are plugin-controlled. */ }
             case "mace" -> {ench(m,Enchantment.DENSITY,7);ench(m,Enchantment.BREACH,4);ench(m,Enchantment.WIND_BURST,2);}
             case "bow" -> {ench(m,Enchantment.POWER,10);ench(m,Enchantment.PUNCH,3);ench(m,Enchantment.FLAME,1);ench(m,Enchantment.INFINITY,1);}
             case "helmet" -> {ench(m,Enchantment.PROTECTION,7);ench(m,Enchantment.RESPIRATION,3);}
@@ -126,19 +129,14 @@ public class GodGear extends JavaPlugin implements Listener, CommandExecutor {
         boolean right=e.getAction().isRightClick(),left=e.getAction().isLeftClick();
         if(weapon.equals("pickaxe") && right) {e.setCancelled(true);if(!threeByThree.add(p.getUniqueId()))threeByThree.remove(p.getUniqueId());p.sendMessage("3x3 mining: "+(threeByThree.contains(p.getUniqueId())?"ON":"OFF"));return;}
         if(weapon.equals("bow")) {
-            if(left){e.setCancelled(true);String mode=bowMode.getOrDefault(p.getUniqueId(),"teleport");mode=mode.equals("teleport")?"impulse":"teleport";bowMode.put(p.getUniqueId(),mode);p.sendMessage("Bow mode: "+mode);}
-            else if(right){e.setCancelled(true);String mode=bowMode.getOrDefault(p.getUniqueId(),"teleport");if(!ready(p,"bow_"+mode,mode.equals("teleport")?10000:5000))return;
-                if(mode.equals("teleport")) {
-                    Block target=p.getTargetBlockExact(30);if(target==null){p.sendMessage("Aim at a block within 30 blocks.");return;}
-                    Location loc=target.getLocation().add(0.5,1,0.5);
-                    if(!loc.getBlock().isPassable() || !loc.clone().add(0,1,0).getBlock().isPassable()){p.sendMessage("No safe landing spot.");return;}
-                    loc.setYaw(p.getLocation().getYaw());loc.setPitch(p.getLocation().getPitch());p.teleport(loc);
-                }else {
-                    Location impact=p.getEyeLocation().add(p.getEyeLocation().getDirection().multiply(8));
-                    p.getWorld().spawnParticle(Particle.EXPLOSION,impact,2);
-                    for(LivingEntity l:enemies(p,impact,5)) {Vector v=l.getLocation().toVector().subtract(impact.toVector()).normalize().multiply(2.0).setY(.7);l.setVelocity(v);l.damage(2,p);}
-                }
-            }return;
+            if(left) {
+                e.setCancelled(true);
+                String next=bowMode.getOrDefault(p.getUniqueId(),"teleport").equals("teleport")?"impulse":"teleport";
+                bowMode.put(p.getUniqueId(),next);
+                p.sendMessage("Bow mode: "+next);
+            }
+            // Right-click is NOT cancelled: vanilla draws and fires a real arrow.
+            return;
         }
         if(weapon.equals("spear")) {
             if(right){e.setCancelled(true);String mode=spearMode.getOrDefault(p.getUniqueId(),"lunge");mode=mode.equals("lunge")?"riptide":"lunge";spearMode.put(p.getUniqueId(),mode);p.sendMessage("Spear mode: "+mode);}
@@ -262,4 +260,120 @@ public class GodGear extends JavaPlugin implements Listener, CommandExecutor {
             breakExtra(other,p,tool);
         }
     }
+
+    private Material base(String id) {
+        return switch(id) {
+            case "pickaxe" -> Material.NETHERITE_PICKAXE;
+            case "sword" -> Material.NETHERITE_SWORD;
+            case "axe" -> Material.NETHERITE_AXE;
+            case "spear" -> Material.NETHERITE_SPEAR;
+            case "mace" -> Material.MACE;
+            case "bow" -> Material.BOW;
+            case "helmet" -> Material.NETHERITE_HELMET;
+            case "chestplate" -> Material.NETHERITE_CHESTPLATE;
+            case "leggings" -> Material.NETHERITE_LEGGINGS;
+            case "boots" -> Material.NETHERITE_BOOTS;
+            default -> null;
+        };
+    }
+
+    private final Map<String,Material[]> extras=new LinkedHashMap<>();
+    private void registerRecipes() {
+        extras.put("sword",new Material[]{Material.TRIDENT});
+        extras.put("axe",new Material[]{Material.TOTEM_OF_UNDYING});
+        extras.put("pickaxe",new Material[]{Material.ANCIENT_DEBRIS,Material.ANCIENT_DEBRIS,Material.DIAMOND,Material.OBSIDIAN,Material.OBSIDIAN});
+        extras.put("spear",new Material[]{Material.HEART_OF_THE_SEA});
+        extras.put("mace",new Material[]{Material.BREEZE_ROD});
+        extras.put("bow",new Material[]{Material.ENDER_PEARL});
+        extras.put("helmet",new Material[]{Material.NAUTILUS_SHELL});
+        extras.put("chestplate",new Material[]{Material.NETHER_STAR});
+        extras.put("leggings",new Material[]{Material.GOAT_HORN});
+        extras.put("boots",new Material[]{Material.RABBIT_FOOT,Material.FEATHER});
+        for(var entry:extras.entrySet()) {
+            String id=entry.getKey();
+            ShapelessRecipe recipe=new ShapelessRecipe(new NamespacedKey(this,"craft_"+id),make(id));
+            recipe.addIngredient(base(id));
+            recipe.addIngredient(Material.ECHO_SHARD);
+            for(Material m:entry.getValue())recipe.addIngredient(m);
+            Bukkit.addRecipe(recipe);
+        }
+    }
+
+    @EventHandler public void onPrepare(PrepareItemCraftEvent event) {
+        if(!(event.getRecipe() instanceof ShapelessRecipe recipe))return;
+        if(!recipe.getKey().equals(new NamespacedKey(this,"craft_sword")))return;
+        boolean channeling=false;
+        for(ItemStack ingredient:event.getInventory().getMatrix()) {
+            if(ingredient!=null && ingredient.getType()==Material.TRIDENT &&
+               ingredient.containsEnchantment(Enchantment.CHANNELING))channeling=true;
+        }
+        if(!channeling)event.getInventory().setResult(null);
+    }
+
+    private ItemStack guide() {
+        ItemStack item=new ItemStack(Material.WRITTEN_BOOK);
+        BookMeta meta=(BookMeta)item.getItemMeta();
+        meta.setTitle("Mac's God Gear Recipes");
+        meta.setAuthor("Mac");
+        meta.addPage("MAC'S GOD GEAR\n\nPut the exact ingredients anywhere in a 3x3 crafting table.\n\nEvery recipe requires one Echo Shard and its base item.");
+        for(var entry:extras.entrySet()) {
+            String id=entry.getKey();
+            StringBuilder page=new StringBuilder("GOD "+id.toUpperCase(Locale.ROOT)+"\n\nBase: "+nice(base(id))+"\n1 Echo Shard\n");
+            Map<Material,Integer> counts=new LinkedHashMap<>();
+            for(Material m:entry.getValue())counts.merge(m,1,Integer::sum);
+            for(var count:counts.entrySet())page.append(count.getValue()).append(" ").append(nice(count.getKey())).append("\n");
+            if(id.equals("sword"))page.append("\nTrident must have Channeling.");
+            meta.addPage(page.toString());
+        }
+        item.setItemMeta(meta);
+        return item;
+    }
+    private String nice(Material material) {
+        return material.name().toLowerCase(Locale.ROOT).replace('_',' ');
+    }
+    private void ensureGuide(Player player) {
+        for(ItemStack item:player.getInventory().getContents()) {
+            if(item!=null && item.getType()==Material.WRITTEN_BOOK &&
+               item.getItemMeta() instanceof BookMeta book &&
+               "Mac's God Gear Recipes".equals(book.getTitle()) &&
+               "Mac".equals(book.getAuthor()))return;
+        }
+        Map<Integer,ItemStack> leftovers=player.getInventory().addItem(guide());
+        leftovers.values().forEach(item->player.getWorld().dropItemNaturally(player.getLocation(),item));
+    }
+    @EventHandler public void onJoin(PlayerJoinEvent event) {
+        Bukkit.getScheduler().runTaskLater(this,()->ensureGuide(event.getPlayer()),2L);
+    }
+    @EventHandler public void onRespawn(PlayerRespawnEvent event) {
+        Bukkit.getScheduler().runTaskLater(this,()->ensureGuide(event.getPlayer()),2L);
+    }
+
+    @EventHandler(ignoreCancelled=true) public void onBowShot(EntityShootBowEvent event) {
+        if(!(event.getEntity() instanceof Player player) || !is(event.getBow(),"bow") ||
+           !(event.getProjectile() instanceof Arrow arrow))return;
+        String mode=bowMode.getOrDefault(player.getUniqueId(),"teleport");
+        arrow.getPersistentDataContainer().set(new NamespacedKey(this,"special_arrow"),PersistentDataType.STRING,mode);
+    }
+    @EventHandler(ignoreCancelled=true) public void onArrowLand(ProjectileHitEvent event) {
+        if(!(event.getEntity() instanceof Arrow arrow) || !(arrow.getShooter() instanceof Player player))return;
+        String mode=arrow.getPersistentDataContainer().get(new NamespacedKey(this,"special_arrow"),PersistentDataType.STRING);
+        if(mode==null)return;
+        Location impact=arrow.getLocation();
+        if(mode.equals("teleport")) {
+            if(!ready(player,"bow_teleport",10000))return;
+            Location destination=impact.clone().add(0,1,0);
+            if(destination.getBlock().isPassable() && destination.clone().add(0,1,0).getBlock().isPassable())
+                player.teleport(destination);
+            else player.sendMessage("No safe landing spot.");
+        } else {
+            if(!ready(player,"bow_impulse",5000))return;
+            impact.getWorld().spawnParticle(Particle.EXPLOSION,impact,2);
+            for(LivingEntity living:enemies(player,impact,5)) {
+                Vector v=living.getLocation().toVector().subtract(impact.toVector());
+                if(v.lengthSquared()>0.001)living.setVelocity(v.normalize().multiply(2).setY(.7));
+                living.damage(2,player);
+            }
+        }
+    }
+
 }
