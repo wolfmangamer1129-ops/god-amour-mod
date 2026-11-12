@@ -49,7 +49,7 @@ public class GodGear extends JavaPlugin implements Listener, CommandExecutor {
                 }
                 if(is(a[2],"chestplate")) { effect(p,PotionEffectType.FIRE_RESISTANCE,80,0); effect(p,PotionEffectType.STRENGTH,80,0); }
                 if(is(a[1],"leggings")) { effect(p,PotionEffectType.SPEED,80,0); effect(p,PotionEffectType.JUMP_BOOST,80,0); }
-                if(is(a[0],"boots")) { effect(p,PotionEffectType.SPEED,80,1); effect(p,PotionEffectType.SLOW_FALLING,80,0); }
+               if(is(a[0],"boots")) { effect(p,PotionEffectType.SPEED,80,1); }
                 if(Arrays.stream(a).allMatch(this::isGodArmor)) {
                     effect(p,PotionEffectType.REGENERATION,80,1);
                     effect(p,PotionEffectType.FIRE_RESISTANCE,80,0);
