@@ -1,4 +1,4 @@
-// Patched God Gear: guarded multi-block mining and repaired spear controls.\npackage com.macs.godgear;
+package com.macs.godgear;
 
 import org.bukkit.*;
 import org.bukkit.block.Block;
